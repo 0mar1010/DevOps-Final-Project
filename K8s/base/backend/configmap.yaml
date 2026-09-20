@@ -1,0 +1,11 @@
+# k8s/base/backend/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: microservices
+data:
+  FLASK_ENV: "production"
+  POSTGRES_HOST: "postgres-service"   # ← updated
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "microservices_db"

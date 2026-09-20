@@ -1,0 +1,15 @@
+# Node
+frontend/node_modules/
+frontend/build/
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+
+# k3d/local
+k3d/
+
+# OS
+.DS_Store
+Thumbs.db
