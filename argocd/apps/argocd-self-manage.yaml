@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-self-manage
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/0mar1010/DevOps-Final-Project.git
+    targetRevision: main
+    path: argocd/install
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
