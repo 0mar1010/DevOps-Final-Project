@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_USERNAME/devops-final-project.git
+    repoURL: https://github.com/0mar1010/DevOps-Final-Project.git
     targetRevision: main
     path: argocd/apps
   destination:
