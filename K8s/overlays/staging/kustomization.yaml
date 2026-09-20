@@ -4,5 +4,7 @@ kind: Kustomization
 resources:
   - ../../base
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging
+    includeSelectors: false
