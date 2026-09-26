@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://helm.elastic.co
-    chart: kibana
-    targetRevision: "8.5.1"
+    repoURL: https://github.com/0mar1010/DevOps-Final-Project
+    targetRevision: main
+    path: charts/kibana
     helm:
       values: |
         elasticsearchHosts: "http://elasticsearch-master:9200"
