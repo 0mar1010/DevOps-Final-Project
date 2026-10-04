@@ -26,9 +26,6 @@ spec:
           resources:
             requests:
               storage: 5Gi
-        extraEnvs:
-          - name: xpack.security.enabled
-            value: "false"
         protocol: http
   destination:
     server: https://kubernetes.default.svc
