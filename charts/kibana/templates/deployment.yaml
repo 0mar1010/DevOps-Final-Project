@@ -140,9 +140,6 @@ spec:
                     local path="${1}"
                     set -- -XGET -s --fail -L
 
-                    if [ -n "${ELASTICSEARCH_USERNAME}" ] && [ -n "${ELASTICSEARCH_PASSWORD}" ]; then
-                      set -- "$@" -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}"
-                    fi
 
                     STATUS=$(curl --output /dev/null --write-out "%{http_code}" -k "$@" "{{ .Values.protocol }}://localhost:{{ .Values.httpPort }}${path}")
                     if [[ "${STATUS}" -eq 200 ]]; then
