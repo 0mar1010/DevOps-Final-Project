@@ -26,6 +26,15 @@ spec:
             - host: kibana.local
               paths:
                 - path: /
+                elasticsearchHosts: "https://elasticsearch-master:9200"
+        extraEnvs:
+          - name: ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES
+            value: /usr/share/kibana/config/certs/ca.crt
+          - name: SERVER_HOST
+            value: "0.0.0.0"
+          - name: NODE_OPTIONS
+            value: "--max-old-space-size=1800"
+        
   destination:
     server: https://kubernetes.default.svc
     namespace: logging

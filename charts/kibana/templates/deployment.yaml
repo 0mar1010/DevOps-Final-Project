@@ -99,23 +99,23 @@ spec:
         image: "{{ .Values.image }}:{{ .Values.imageTag }}"
         imagePullPolicy: "{{ .Values.imagePullPolicy }}"
         env:
-          {{- if .Values.elasticsearchURL }}
+          {{- if and (hasKey .Values "elasticsearchURL") (not (empty (index .Values "elasticsearchURL"))) }}
           - name: ELASTICSEARCH_URL
-            value: "{{ .Values.elasticsearchURL }}"
-          {{- else if .Values.elasticsearchHosts }}
+            value: {{ index .Values "elasticsearchURL" | quote }}
+          {{- else if and (hasKey .Values "elasticsearchHosts") (not (empty (index .Values "elasticsearchHosts"))) }}
           - name: ELASTICSEARCH_HOSTS
-            value: "{{ .Values.elasticsearchHosts }}"
+            value: {{ index .Values "elasticsearchHosts" | quote }}
           {{- end }}
-                     - name: ELASTICSEARCH_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.elasticsearchCredentialSecret }}
-                  key: username
-            - name: ELASTICSEARCH_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.elasticsearchCredentialSecret }}
-                  key: password
+          - name: ELASTICSEARCH_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.elasticsearchCredentialSecret }}
+                key: username
+          - name: ELASTICSEARCH_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.elasticsearchCredentialSecret }}
+                key: password
 {{- if .Values.extraEnvs }}
 {{ toYaml .Values.extraEnvs | indent 10 }}
 {{- end }}

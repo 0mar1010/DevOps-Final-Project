@@ -27,6 +27,8 @@ spec:
             requests:
               storage: 5Gi
         protocol: http
+        protocol: https
+        clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
