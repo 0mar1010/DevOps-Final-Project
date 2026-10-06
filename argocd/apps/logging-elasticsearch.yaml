@@ -20,13 +20,12 @@ spec:
             memory: "1Gi"
           limits:
             cpu: "1000m"
-            memory: "1.5Gi"
+            memory: "1536Mi"
         volumeClaimTemplate:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
               storage: 5Gi
-        protocol: http
         protocol: https
         clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
   destination:
@@ -39,3 +38,9 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
