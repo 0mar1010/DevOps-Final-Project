@@ -31,7 +31,7 @@ spec:
                     matchers:
                     - logs_path:
                         logs_path: "/var/log/containers/"
-                              output.elasticsearch:
+            output.elasticsearch:
               hosts: ["https://elasticsearch-master:9200"]
               username: "${ELASTICSEARCH_USERNAME}"
               password: "${ELASTICSEARCH_PASSWORD}"
@@ -47,7 +47,6 @@ spec:
               secretKeyRef:
                 name: elasticsearch-master-credentials
                 key: password
-
         secretMounts:
           - name: es-certs
             secretName: elasticsearch-master-certs
