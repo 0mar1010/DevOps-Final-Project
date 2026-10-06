@@ -31,9 +31,8 @@ spec:
                     matchers:
                     - logs_path:
                         logs_path: "/var/log/containers/"
-                  output.elasticsearch:
+                              output.elasticsearch:
               hosts: ["https://elasticsearch-master:9200"]
-              protocol: https
               username: "${ELASTICSEARCH_USERNAME}"
               password: "${ELASTICSEARCH_PASSWORD}"
               ssl.certificate_authorities: ["/usr/share/filebeat/certs/ca.crt"]

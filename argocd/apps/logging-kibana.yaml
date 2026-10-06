@@ -12,6 +12,7 @@ spec:
     helm:
       values: |
         elasticsearchHosts: "http://elasticsearch-master:9200"
+        elasticsearchCredentialSecret: kibana-system-credentials
         resources:
           requests:
             cpu: "100m"
@@ -19,14 +20,13 @@ spec:
           limits:
             cpu: "500m"
             memory: "1Gi"
-        ingress:
-          enabled: true
-          ingressClassName: traefik
-          hosts:
-            - host: kibana.local
-              paths:
-                - path: /
-                elasticsearchHosts: "https://elasticsearch-master:9200"
+          ingress:
+            enabled: true
+            className: traefik
+            hosts:
+              - host: kibana.local
+                paths:
+                  - path: /                elasticsearchHosts: "https://elasticsearch-master:9200"
         extraEnvs:
           - name: ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES
             value: /usr/share/kibana/config/certs/ca.crt
