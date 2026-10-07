@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "k8s/overlays/**"      # tag-bump commits (step 5) won't retrigger CI
+      - "K8s/overlays/**"      # tag-bump commits (step 5) won't retrigger CI
       - "*.md"
   pull_request:
     branches: [main]
@@ -81,3 +81,26 @@ jobs:
           docker tag $IMG:${{ github.sha }} $IMG:latest
           docker push $IMG:${{ github.sha }}
           docker push $IMG:latest
+  update-tag:
+    needs: build-scan-push
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set new image tags
+        working-directory: K8s/overlays/staging
+        run: |
+          kustomize edit set image \
+            backend=ghcr.io/0mar1010/backend:${{ github.sha }} \
+            frontend=ghcr.io/0mar1010/frontend:${{ github.sha }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add K8s/overlays/staging/kustomization.yaml
+          git commit -m "ci: deploy ${{ github.sha }} [skip ci]" || echo "nothing to commit"
+          git push
