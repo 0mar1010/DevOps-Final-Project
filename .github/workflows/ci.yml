@@ -129,7 +129,7 @@ jobs:
             -v "$PWD":/src:ro \
             -v /tmp/dc-report:/report \
             -e NVD_API_KEY \
-            owasp/dependency-check:latest \
+            owasp/dependency-check:13.0.0 \
             --scan /src/backend --scan /src/frontend \
             --format HTML --format JSON \
             --project capstone --out /report \
