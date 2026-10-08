@@ -1,0 +1,31 @@
+stages: [build, scan]
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/**/*
+        - frontend/**/*
+        - K8s/**/*
+        - .gitlab-ci.yml
+
+build-image:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  parallel:
+    matrix:
+      - SERVICE: [backend, frontend]
+  script:
+    - docker build -t "$SERVICE:$CI_COMMIT_SHORT_SHA" "./$SERVICE"
+
+trivy-scan:
+  stage: scan
+  image:
+    name: ghcr.io/aquasecurity/trivy:0.69.2
+    entrypoint: [""]
+  script:
+    - for d in backend frontend K8s; do trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 "$d"; done
