@@ -115,6 +115,32 @@ jobs:
             echo "===== $f ====="
             kubesec scan "$f" || true
           done
+  owasp-dependency-check:
+    name: OWASP Dependency-Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run Dependency-Check (report only)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          mkdir -p /tmp/dc-report
+          docker run --rm \
+            -v "$PWD":/src:ro \
+            -v /tmp/dc-report:/report \
+            -e NVD_API_KEY \
+            owasp/dependency-check:latest \
+            --scan /src/backend --scan /src/frontend \
+            --format HTML --format JSON \
+            --project capstone --out /report \
+            --failOnCVSS 11 || true
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: /tmp/dc-report
+          retention-days: 7
   update-tag:
     needs: build-scan-push
     concurrency:
