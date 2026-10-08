@@ -2,22 +2,29 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../base
+- ../../base
 
 patches:
-  - target:
-      kind: Deployment
-      name: backend
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-  - target:
-      kind: Deployment
-      name: frontend
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-  - path: backend-resources-patch.yaml
-  - path: frontend-resources-patch.yaml
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 3
+  target:
+    kind: Deployment
+    name: backend
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 3
+  target:
+    kind: Deployment
+    name: frontend
+- path: backend-resources-patch.yaml
+- path: frontend-resources-patch.yaml
+images:
+- name: backend
+  newName: ghcr.io/0mar1010/backend
+  newTag: 58db3b13427caa29daddf727489c527f4a945d12
+- name: frontend
+  newName: ghcr.io/0mar1010/frontend
+  newTag: 58db3b13427caa29daddf727489c527f4a945d12
