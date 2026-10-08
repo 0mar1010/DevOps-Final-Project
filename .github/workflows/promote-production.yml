@@ -1,0 +1,40 @@
+name: promote-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (full 40-character commit SHA) to promote"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    # environment: production   # uncomment ONLY if the repo is public and required reviewers are set
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag
+        run: |
+          if ! [[ "$TAG" =~ ^[0-9a-f]{40}$ ]]; then echo "tag must be a 40-character commit SHA"; exit 1; fi
+
+      - name: Set production image tags
+        working-directory: K8s/overlays/production
+        run: |
+          kustomize edit set image \
+            backend=ghcr.io/0mar1010/backend:$TAG \
+            frontend=ghcr.io/0mar1010/frontend:$TAG
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add K8s/overlays/production/kustomization.yaml
+          git commit -m "ci: promote $TAG to production [skip ci]" || echo "nothing to commit"
+          git pull --rebase
+          git push
