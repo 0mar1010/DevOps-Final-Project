@@ -1125,6 +1125,10 @@ terraform destroy
 
 # Implementation Status
 
+---
+
+# Implementation Status
+
 ## 📌 Implementation Status (my project)
 
 _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
@@ -1139,8 +1143,8 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
 | 3 ArgoCD & GitOps | ✅ Done | root-app pattern, ArgoCD manages itself |
 | 4 Monitoring | ✅ Done | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) via ArgoCD |
 | 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; logs searchable via the `filebeat-*` data view |
-| 7 CI/CD Enhancement | ✅ Core done | GitHub Actions (lint, test, build, Trivy, push to ghcr.io, tag bump) + GitLab CI (build + scan) |
-| 6 AWS Cloud Integration | ⬜ Next | |
+| 7 CI/CD Enhancement | ✅ Done | GitHub Actions (lint, test, build, Trivy, push to ghcr.io, tag bump) + GitLab CI (build + scan) + manual production promotion. Kubesec/OWASP still to add |
+| 6 AWS Cloud Integration | ⏭ Skipped for now | Planned, not built |
 
 ### CI/CD as built
 
@@ -1184,7 +1188,8 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
 - The Elastic chart regenerates its secrets on sync; handled with an ArgoCD `ignoreDifferences` rule.
 - The Kibana chart is vendored in `charts/kibana/` with local patches (broken pre-install hook removed, probe auth removed).
 - Single-node Elasticsearch has no redundancy.
-- The production overlay is updated in Git only; there is no ArgoCD production app.
+- The production overlay is updated in Git only; there is no ArgoCD production app (one cluster only: both overlays would collide on the same Deployments; a real setup uses a second cluster).
+- AWS (Terraform, ECS/EC2/S3/RDS) was not built.
 
 ### Lessons learned (for the presentation)
 
