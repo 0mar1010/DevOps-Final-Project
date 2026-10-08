@@ -1119,11 +1119,7 @@ terraform destroy
 
 ---
 
-# Implementation Status
-
----
-
-# Implementation Status
+## Implementation Status
 
 ---
 
@@ -1131,7 +1127,7 @@ terraform destroy
 
 ## 📌 Implementation Status (my project)
 
-_Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
+_Last updated: 2026-10-09. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
 
 **Environment:** local k3d cluster (`capstone`), Traefik ingress, ArgoCD (app-of-apps, self-managed), Windows + PowerShell.
 **Order change:** CI/CD (README Phase 7) was done before AWS (README Phase 6).
@@ -1139,23 +1135,25 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
 | README phase | Status | Notes |
 | --- | --- | --- |
 | 1 Kubernetes Foundation | ✅ Done | Kustomize base + dev/staging/production overlays, Postgres StatefulSet, Ingress |
-| 2 Helm Charts | ⬜ Not tracked separately | Third-party charts are used through ArgoCD; no custom app chart yet |
+| 2 Helm Charts | ✅ Done | `helm/microservices-app/` with dev/staging/prod values; `helm lint` passes; `helm template` output matches `kubectl kustomize` (only the Namespace object differs). ArgoCD keeps using Kustomize, so the chart is a tested deliverable, not the deploy path |
 | 3 ArgoCD & GitOps | ✅ Done | root-app pattern, ArgoCD manages itself |
 | 4 Monitoring | ✅ Done | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) via ArgoCD |
-| 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; logs searchable via the `filebeat-*` data view |
-| 7 CI/CD Enhancement | ✅ Done | GitHub Actions (lint, test, build, Trivy, push to ghcr.io, tag bump) + GitLab CI (build + scan) + manual production promotion. Kubesec/OWASP still to add |
+| 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; `filebeat-*` data view; Kibana dashboard "Capstone Logs"; ILM retention (delete after 60 days) |
+| 7 CI/CD Enhancement | ✅ Done | GitHub Actions (7 jobs: lint, test, build, Trivy, Kubesec, OWASP Dependency-Check, tag bump) + GitLab CI (build + scan) + manual production promotion. Kubesec and OWASP are report-only |
 | 6 AWS Cloud Integration | ⏭ Skipped for now | Planned, not built |
 
 ### CI/CD as built
 
 ```text
-[git push] --+--> [GitHub] --> [GitHub Actions: lint+test -> build -> Trivy scan -> push ghcr.io]
-             |                                              |
-             |                                              v
-             |                [update-tag: commit new image SHA to K8s/overlays/staging]
-             |                                              |
-             |                                              v
-             |                     [ArgoCD syncs --> k3d cluster, namespace microservices]
+[git push] --+--> [GitHub] --> [GitHub Actions: 7 jobs]
+             |                   |-- lint-test (backend, frontend)
+             |                   |-- build-scan-push (backend, frontend)   [Trivy image scan, push to ghcr.io]
+             |                   |-- kubesec-scan                          [Kubernetes YAML]
+             |                   |-- owasp-dependency-check                [requirements.txt, package.json]
+             |                   '-- update-tag                            [commit new image SHA to staging overlay]
+             |                                |
+             |                                v
+             |                  [ArgoCD syncs --> k3d cluster, namespace microservices]
              |
              '--> [GitLab] --> [GitLab CI: build images (no push) + Trivy scan of repo files]
 ```
@@ -1163,10 +1161,27 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
 - One `git push` goes to both GitHub and GitLab (two push URLs on `origin`).
 - Only GitHub Actions commits the image tag back (`[skip ci]` plus `paths-ignore` prevent loops), so the two repos do not diverge.
 - A `concurrency` group on the `update-tag` job stops two runs from editing the tag file at the same time.
-- Trivy runs as a pinned container image (`0.69.2`), not as a floating GitHub Action tag.
+- Trivy runs as a pinned container image (`0.69.2`); OWASP Dependency-Check is pinned to `13.0.0`. No floating tags.
+- Kubesec and OWASP are report-only (`|| true`, `--failOnCVSS 11`): they print a report and upload an artifact but never fail the pipeline.
 - ghcr.io replaces ECR for now; an ECR push is added when AWS is done.
-- Production promotion is a manual workflow (`promote-production.yml`) that writes a chosen commit SHA into the production overlay.
-- Not done yet: Kubesec, OWASP Dependency-Check, SonarQube, notifications.
+- Production promotion is a manual workflow (`promote-production.yml`) that writes a chosen commit SHA into the production overlay in Git.
+- Latest evidence: GitHub run #12 green (7 jobs, 4m 41s); GitLab pipeline #2928400473 green (3 jobs, 3m 46s).
+- Not done: SonarQube, notifications, blue-green/canary.
+
+### CI time budget (run #10)
+
+| Job | Time |
+| --- | --- |
+| lint-test (backend) | 11s |
+| lint-test (frontend) | 1m 47s |
+| build-scan-push (backend) | 47s |
+| build-scan-push (frontend) | 2m 51s |
+| Kubesec scan | 6s |
+| OWASP Dependency-Check | 27s |
+| update-tag | 7s |
+| Total wall time | about 4m 50s |
+
+Planned speed-ups: Docker layer cache for the image builds, and a cache for the OWASP vulnerability data.
 
 ### Logging stack as built (differs from the plan above)
 
@@ -1175,12 +1190,16 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
                                                           |
                                                           v
                                   [Kibana] --https + kibana_system user-->
+                                      |
+                                      v
+                           [Dashboard "Capstone Logs"]   [ILM: hot rollover 30d/50GB, delete at 60d]
 ```
 
 - **Logstash skipped by design:** Filebeat ships directly to Elasticsearch.
 - **Single Elasticsearch node** (plan says 3): health is `yellow` because the replica shard cannot be placed on one node.
 - **Security is on:** TLS between all components; Kibana uses the dedicated `kibana_system` user (Kibana 8 rejects `elastic`).
-- **Remaining for this phase:** Kibana dashboards, log retention policy.
+- **Dashboard:** 3 panels (log volume, logs per service, errors per service).
+- **Retention:** the `filebeat` ILM policy has a delete phase at 60 days. It lives inside Elasticsearch, not in Git; the command is kept in the recovery notes.
 
 ### Known gaps / honest limitations
 
@@ -1188,13 +1207,18 @@ _Last updated: 2026-10-08. Details and log: `PROGRESS.md`. Q&A and debugging not
 - The Elastic chart regenerates its secrets on sync; handled with an ArgoCD `ignoreDifferences` rule.
 - The Kibana chart is vendored in `charts/kibana/` with local patches (broken pre-install hook removed, probe auth removed).
 - Single-node Elasticsearch has no redundancy.
+- Kubesec (backend 4/10, frontend 4/10, postgres 2/10) and OWASP findings are not triaged yet, so both scanners are report-only.
+- The Helm chart's values files hold hand-copied image tags; CI only updates the Kustomize overlay.
 - The production overlay is updated in Git only; there is no ArgoCD production app (one cluster only: both overlays would collide on the same Deployments; a real setup uses a second cluster).
 - AWS (Terraform, ECS/EC2/S3/RDS) was not built.
 
 ### Lessons learned (for the presentation)
 
 - Git changes reach the cluster only after the parent ArgoCD app (`root-app`) syncs.
-- Render Helm charts locally (`helm template`) before pushing.
+- Render Helm charts locally (`helm template`) before pushing; compare Helm and Kustomize output to prove they match.
 - CI builds and pushes; ArgoCD deploys. CI never touches the cluster.
 - Automated writers can race: serialize them with `concurrency`.
-- Pin third-party tools; check the data path (indices, image tags) before trusting a dashboard.
+- Pin third-party tools; floating tags like `latest` can change under you.
+- Report-only scanners give evidence without freezing the pipeline; gate them after triage.
+- Check the data path (indices, image tags) before trusting a dashboard.
+- Retention (ILM) is configuration inside Elasticsearch: document it in the recovery notes.
