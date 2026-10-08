@@ -16,17 +16,17 @@ permissions:
 
 jobs:
   lint-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         service: [backend, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
         if: matrix.service == 'backend'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -42,7 +42,7 @@ jobs:
 
       - name: Set up Node
         if: matrix.service == 'frontend'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -56,7 +56,7 @@ jobs:
 
   build-scan-push:
     needs: lint-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -64,11 +64,11 @@ jobs:
     env:
       IMAGE: ghcr.io/0mar1010/${{ matrix.service }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build image (kept local until the scan has run)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.service }}
           load: true
@@ -85,7 +85,7 @@ jobs:
 
       - name: Log in to ghcr.io
         if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -104,11 +104,11 @@ jobs:
       group: update-tag
       cancel-in-progress: false
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set new image tags in the staging overlay
         working-directory: K8s/overlays/staging

@@ -12,12 +12,12 @@ permissions:
 
 jobs:
   promote:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # environment: production   # uncomment ONLY if the repo is public and required reviewers are set
     env:
       TAG: ${{ inputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate tag
         run: |
