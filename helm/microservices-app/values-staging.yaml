@@ -1,0 +1,9 @@
+environment: staging
+backend:
+  image:
+    repository: ghcr.io/0mar1010/backend
+    tag: 7740563b8e5d9145a22d86a95c01dfc5ff92f183
+frontend:
+  image:
+    repository: ghcr.io/0mar1010/frontend
+    tag: 7740563b8e5d9145a22d86a95c01dfc5ff92f183

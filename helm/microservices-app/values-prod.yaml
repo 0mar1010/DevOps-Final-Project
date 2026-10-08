@@ -1,0 +1,17 @@
+environment: production
+backend:
+  replicas: 3
+  image:
+    repository: ghcr.io/0mar1010/backend
+    tag: 58db3b13427caa29daddf727489c527f4a945d12
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: 1000m, memory: 512Mi }
+frontend:
+  replicas: 3
+  image:
+    repository: ghcr.io/0mar1010/frontend
+    tag: 58db3b13427caa29daddf727489c527f4a945d12
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 400m, memory: 256Mi }

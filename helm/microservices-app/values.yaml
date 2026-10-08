@@ -1,0 +1,41 @@
+# Defaults (same as K8s/base). Environment files override only what differs.
+environment: base
+
+backend:
+  replicas: 2
+  port: 5000
+  image:
+    repository: backend
+    tag: local
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  config:
+    FLASK_ENV: production
+    POSTGRES_HOST: postgres-service
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: microservices_db
+
+frontend:
+  replicas: 2
+  port: 80
+  image:
+    repository: frontend
+    tag: local
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+postgres:
+  image: postgres:15
+  storage: 1Gi
+
+# Demo credentials, same as today. Real setups use Sealed/External Secrets.
+secret:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+
+ingress:
+  className: traefik
