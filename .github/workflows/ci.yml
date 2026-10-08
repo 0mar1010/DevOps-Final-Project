@@ -100,6 +100,9 @@ jobs:
 
   update-tag:
     needs: build-scan-push
+    concurrency:
+      group: update-tag
+      cancel-in-progress: false
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
