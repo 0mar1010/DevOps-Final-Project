@@ -98,6 +98,23 @@ jobs:
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
 
+  kubesec-scan:
+    name: Kubesec scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install kubesec v2.14.1
+        run: |
+          curl -fsSL https://github.com/controlplaneio/kubesec/releases/download/v2.14.1/kubesec_linux_amd64.tar.gz -o /tmp/kubesec.tgz
+          tar -xzf /tmp/kubesec.tgz -C /tmp
+          sudo install -m 0755 /tmp/kubesec /usr/local/bin/kubesec
+          kubesec version
+      - name: Scan K8s base manifests (report only)
+        run: |
+          find K8s/base -name '*.yaml' -type f -print0 | while IFS= read -r -d '' f; do
+            echo "===== $f ====="
+            kubesec scan "$f" || true
+          done
   update-tag:
     needs: build-scan-push
     concurrency:
