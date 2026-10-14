@@ -44,3 +44,8 @@ spec:
       kind: Secret
       jsonPointers:
         - /data
+    - group: apps
+      kind: StatefulSet
+      name: elasticsearch-master
+      jsonPointers:
+        - /spec/volumeClaimTemplates
