@@ -1,0 +1,51 @@
+name: owasp-dependency-check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owasp-dependency-check:
+    name: OWASP Dependency-Check
+    timeout-minutes: 150
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: /tmp/dc-data
+          key: dc-data-v2-${{ github.run_id }}
+          restore-keys: |
+            dc-data-v2-
+      - name: Run Dependency-Check (report only)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          mkdir -p /tmp/dc-report /tmp/dc-data
+          chmod -R 777 /tmp/dc-data
+          echo "NVD key length: ${#NVD_API_KEY}"
+          test -n "$NVD_API_KEY" || { echo "NVD_API_KEY secret is empty or missing"; exit 1; }
+          docker run --rm \
+            -v "$PWD":/src:ro \
+            -v /tmp/dc-report:/report \
+            -v /tmp/dc-data:/usr/share/dependency-check/data \
+            owasp/dependency-check:13.0.0 \
+            --scan /src/backend --scan /src/frontend \
+            --format HTML --format JSON \
+            --project capstone --out /report \
+            --nvdApiKey "$NVD_API_KEY" \
+            --failOnCVSS 11 || true
+      - name: Verify report exists
+        run: |
+          ls -la /tmp/dc-report
+          test -f /tmp/dc-report/dependency-check-report.html
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: /tmp/dc-report
+          retention-days: 7
