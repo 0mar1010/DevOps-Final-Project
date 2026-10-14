@@ -10,7 +10,7 @@ labels:
 images:
 - name: backend
   newName: ghcr.io/0mar1010/backend
-  newTag: a57dbebac168487356a13e12bf97976cf2a7e27a
+  newTag: 8ec78859dc7e1b4b72c1815a36ce6433fd1de561
 - name: frontend
   newName: ghcr.io/0mar1010/frontend
-  newTag: a57dbebac168487356a13e12bf97976cf2a7e27a
+  newTag: 8ec78859dc7e1b4b72c1815a36ce6433fd1de561
