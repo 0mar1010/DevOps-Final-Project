@@ -135,15 +135,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/dc-data
-          key: dc-data-${{ github.run_id }}
+          key: dc-data-v2-${{ github.run_id }}
           restore-keys: |
-            dc-data-
+            dc-data-v2-
       - name: Run Dependency-Check (report only)
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mkdir -p /tmp/dc-report /tmp/dc-data
           chmod -R 777 /tmp/dc-data
+          echo "NVD key length: ${#NVD_API_KEY}"
+          test -n "$NVD_API_KEY" || { echo "NVD_API_KEY secret is empty or missing"; exit 1; }
           docker run --rm \
             -v "$PWD":/src:ro \
             -v /tmp/dc-report:/report \
@@ -153,6 +155,7 @@ jobs:
             --scan /src/backend --scan /src/frontend \
             --format HTML --format JSON \
             --project capstone --out /report \
+            --nvdApiKey "$NVD_API_KEY" \
             --failOnCVSS 11 || true
       - name: Verify report exists
         run: |
