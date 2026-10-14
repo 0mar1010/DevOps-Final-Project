@@ -2,6 +2,13 @@ name: owasp-dependency-check
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1,4"
+  push:
+    branches: [main]
+    paths:
+      - "backend/requirements.txt"
+      - "frontend/package.json"
 
 permissions:
   contents: read
