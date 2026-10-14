@@ -1125,9 +1125,13 @@ terraform destroy
 
 # Implementation Status
 
+---
+
+# Implementation Status
+
 ## 📌 Implementation Status (my project)
 
-_Last updated: 2026-10-09. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
+_Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
 
 **Environment:** local k3d cluster (`capstone`), Traefik ingress, ArgoCD (app-of-apps, self-managed), Windows + PowerShell.
 **Order change:** CI/CD (README Phase 7) was done before AWS (README Phase 6).
@@ -1136,24 +1140,26 @@ _Last updated: 2026-10-09. Details and log: `PROGRESS.md`. Q&A and debugging not
 | --- | --- | --- |
 | 1 Kubernetes Foundation | ✅ Done | Kustomize base + dev/staging/production overlays, Postgres StatefulSet, Ingress |
 | 2 Helm Charts | ✅ Done | `helm/microservices-app/` with dev/staging/prod values; `helm lint` passes; `helm template` output matches `kubectl kustomize` (only the Namespace object differs). ArgoCD keeps using Kustomize, so the chart is a tested deliverable, not the deploy path |
-| 3 ArgoCD & GitOps | ✅ Done | root-app pattern, ArgoCD manages itself |
+| 3 ArgoCD & GitOps | ✅ Done | root-app pattern, ArgoCD manages itself; all 7 apps Synced and Healthy |
 | 4 Monitoring | ✅ Done | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) via ArgoCD |
 | 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; `filebeat-*` data view; Kibana dashboard "Capstone Logs"; ILM retention (delete after 60 days) |
-| 7 CI/CD Enhancement | ✅ Done | GitHub Actions (7 jobs: lint, test, build, Trivy, Kubesec, OWASP Dependency-Check, tag bump) + GitLab CI (build + scan) + manual production promotion. Kubesec and OWASP are report-only |
+| 7 CI/CD Enhancement | ✅ Done | GitHub Actions (lint, test, build, Trivy image scan, Kubesec, tag bump) + a separate OWASP Dependency-Check workflow with cached NVD data + GitLab CI (build + scan) + manual production promotion. Kubesec and OWASP are report-only. Pipeline wall time about 1m 51s after caching |
+| Bonus: Autoscaling (HPA) | ✅ Done | HPA on `backend`: 2 to 5 pods at 70% CPU; load-tested, it scaled to 5 pods |
 | 6 AWS Cloud Integration | ⏭ Skipped for now | Planned, not built |
 
 ### CI/CD as built
 
 ```text
-[git push] --+--> [GitHub] --> [GitHub Actions: 7 jobs]
-             |                   |-- lint-test (backend, frontend)
+[git push] --+--> [GitHub] --> [GitHub Actions: ci.yml]
+             |                   |-- lint-test (backend, frontend)         [frontend uses npm ci with a committed lockfile]
              |                   |-- build-scan-push (backend, frontend)   [Trivy image scan, push to ghcr.io]
              |                   |-- kubesec-scan                          [Kubernetes YAML]
-             |                   |-- owasp-dependency-check                [requirements.txt, package.json]
              |                   '-- update-tag                            [commit new image SHA to staging overlay]
              |                                |
              |                                v
              |                  [ArgoCD syncs --> k3d cluster, namespace microservices]
+             |
+             |--> [GitHub Actions: owasp.yml]  [dependency files + cached NVD data, report-only]
              |
              '--> [GitLab] --> [GitLab CI: build images (no push) + Trivy scan of repo files]
 ```
@@ -1162,26 +1168,33 @@ _Last updated: 2026-10-09. Details and log: `PROGRESS.md`. Q&A and debugging not
 - Only GitHub Actions commits the image tag back (`[skip ci]` plus `paths-ignore` prevent loops), so the two repos do not diverge.
 - A `concurrency` group on the `update-tag` job stops two runs from editing the tag file at the same time.
 - Trivy runs as a pinned container image (`0.69.2`); OWASP Dependency-Check is pinned to `13.0.0`. No floating tags.
-- Kubesec and OWASP are report-only (`|| true`, `--failOnCVSS 11`): they print a report and upload an artifact but never fail the pipeline.
+- `frontend/package.json` pins `typescript` to 4.9.5 and `package-lock.json` is committed, so CI installs with `npm ci` (exact, reproducible).
+- Kubesec and OWASP are report-only: they print a report and upload an artifact but never fail the pipeline.
+- OWASP lives in its own workflow because its first run must download the whole NVD vulnerability database (hours). The data is cached with `actions/cache`, so later runs only fetch changes and the main pipeline stays fast.
 - ghcr.io replaces ECR for now; an ECR push is added when AWS is done.
 - Production promotion is a manual workflow (`promote-production.yml`) that writes a chosen commit SHA into the production overlay in Git.
-- Latest evidence: GitHub run #12 green (7 jobs, 4m 41s); GitLab pipeline #2928400473 green (3 jobs, 3m 46s).
+- Latest evidence: GitHub run #19 green (about 1m 51s); GitLab CI green (3 jobs).
 - Not done: SonarQube, notifications, blue-green/canary.
 
-### CI time budget (run #10)
+### CI time
 
-| Job | Time |
+| Stage | Wall time |
 | --- | --- |
-| lint-test (backend) | 11s |
-| lint-test (frontend) | 1m 47s |
-| build-scan-push (backend) | 47s |
-| build-scan-push (frontend) | 2m 51s |
-| Kubesec scan | 6s |
-| OWASP Dependency-Check | 27s |
-| update-tag | 7s |
-| Total wall time | about 4m 50s |
+| 2026-10-09 (run #12, no caching) | about 4m 41s (frontend image build 2m 51s was the bottleneck) |
+| 2026-10-14 (run #19, with caching) | about 1m 51s |
 
-Planned speed-ups: Docker layer cache for the image builds, and a cache for the OWASP vulnerability data.
+### Autoscaling (HPA) as built
+
+```text
+[load-gen pod] --many requests/sec--> [backend Service] --> [2 backend pods]
+                                          |  CPU above 70% of the request
+                                          v
+[HPA checks CPU] --> adds pods (max 5) --> [load spreads, CPU per pod falls]
+[load stops] --> after the cool-down --> back to 2 pods
+```
+
+- HPA `backend`: min 2, max 5, target 70% CPU (CPU request 100m, limit 500m per pod).
+- Test: a temporary `busybox` pod ran 12 `wget` loops against `http://backend:5000/health`; the backend scaled to 5 pods and ArgoCD stayed Synced.
 
 ### Logging stack as built (differs from the plan above)
 
@@ -1204,10 +1217,11 @@ Planned speed-ups: Docker layer cache for the image builds, and a cache for the 
 ### Known gaps / honest limitations
 
 - `kibana-system-credentials` is created by hand and is not in Git. Production answer: Sealed Secrets or External Secrets.
-- The Elastic chart regenerates its secrets on sync; handled with an ArgoCD `ignoreDifferences` rule.
+- The Elastic chart regenerates its secrets on sync, and the StatefulSet shows harmless defaulted fields; both are handled with ArgoCD `ignoreDifferences` rules.
 - The Kibana chart is vendored in `charts/kibana/` with local patches (broken pre-install hook removed, probe auth removed).
 - Single-node Elasticsearch has no redundancy.
 - Kubesec (backend 4/10, frontend 4/10, postgres 2/10) and OWASP findings are not triaged yet, so both scanners are report-only.
+- The OWASP NVD cache is not seeded yet: the first full run (about 3h) was cancelled at about 81%, so the next run starts the download again.
 - The Helm chart's values files hold hand-copied image tags; CI only updates the Kustomize overlay.
 - The production overlay is updated in Git only; there is no ArgoCD production app (one cluster only: both overlays would collide on the same Deployments; a real setup uses a second cluster).
 - AWS (Terraform, ECS/EC2/S3/RDS) was not built.
@@ -1219,6 +1233,9 @@ Planned speed-ups: Docker layer cache for the image builds, and a cache for the 
 - CI builds and pushes; ArgoCD deploys. CI never touches the cluster.
 - Automated writers can race: serialize them with `concurrency`.
 - Pin third-party tools; floating tags like `latest` can change under you.
+- A lockfile must fit every package's allowed versions: react-scripts accepts only TypeScript 3.x/4.x, so pinning `typescript` 4.9.5 made `npm ci` work.
+- Caching is the biggest CI speed-up (about 4m 41s down to about 1m 51s), and caches are saved only when a job succeeds.
 - Report-only scanners give evidence without freezing the pipeline; gate them after triage.
+- HPA scales on CPU as a percentage of the CPU request: set requests, then prove it with a load test.
 - Check the data path (indices, image tags) before trusting a dashboard.
 - Retention (ILM) is configuration inside Elasticsearch: document it in the recovery notes.
