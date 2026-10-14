@@ -72,6 +72,8 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           load: true
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           tags: ${{ env.IMAGE }}:${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/0mar1010/DevOps-Final-Project
 
@@ -120,14 +122,23 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Cache Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: /tmp/dc-data
+          key: dc-data-${{ github.run_id }}
+          restore-keys: |
+            dc-data-
       - name: Run Dependency-Check (report only)
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          mkdir -p /tmp/dc-report
+          mkdir -p /tmp/dc-report /tmp/dc-data
+          chmod -R 777 /tmp/dc-data
           docker run --rm \
             -v "$PWD":/src:ro \
             -v /tmp/dc-report:/report \
+            -v /tmp/dc-data:/usr/share/dependency-check/data \
             -e NVD_API_KEY \
             owasp/dependency-check:13.0.0 \
             --scan /src/backend --scan /src/frontend \
