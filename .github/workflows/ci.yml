@@ -122,23 +122,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - name: Cache Dependency-Check data
-        uses: actions/cache@v4
-        with:
-          path: /tmp/dc-data
-          key: dc-data-${{ github.run_id }}
-          restore-keys: |
-            dc-data-
       - name: Run Dependency-Check (report only)
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          mkdir -p /tmp/dc-report /tmp/dc-data
-          chmod -R 777 /tmp/dc-data
+          mkdir -p /tmp/dc-report
           docker run --rm \
             -v "$PWD":/src:ro \
             -v /tmp/dc-report:/report \
-            -v /tmp/dc-data:/usr/share/dependency-check/data \
             -e NVD_API_KEY \
             owasp/dependency-check:13.0.0 \
             --scan /src/backend --scan /src/frontend \
