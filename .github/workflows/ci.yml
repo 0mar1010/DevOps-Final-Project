@@ -46,6 +46,14 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Cache npm downloads
+        if: matrix.service == 'frontend'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('frontend/package.json') }}
+          restore-keys: |
+            npm-
       - name: Frontend install, lint and test
         if: matrix.service == 'frontend'
         working-directory: frontend
@@ -119,23 +127,37 @@ jobs:
           done
   owasp-dependency-check:
     name: OWASP Dependency-Check
+    timeout-minutes: 30
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Cache Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: /tmp/dc-data
+          key: dc-data-${{ github.run_id }}
+          restore-keys: |
+            dc-data-
       - name: Run Dependency-Check (report only)
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          mkdir -p /tmp/dc-report
+          mkdir -p /tmp/dc-report /tmp/dc-data
+          chmod -R 777 /tmp/dc-data
           docker run --rm \
             -v "$PWD":/src:ro \
             -v /tmp/dc-report:/report \
+            -v /tmp/dc-data:/usr/share/dependency-check/data \
             -e NVD_API_KEY \
             owasp/dependency-check:13.0.0 \
             --scan /src/backend --scan /src/frontend \
             --format HTML --format JSON \
             --project capstone --out /report \
             --failOnCVSS 11 || true
+      - name: Verify report exists
+        run: |
+          ls -la /tmp/dc-report
+          test -f /tmp/dc-report/dependency-check-report.html
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
