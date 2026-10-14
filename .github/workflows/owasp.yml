@@ -32,6 +32,7 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           mkdir -p /tmp/dc-report /tmp/dc-data
+          chmod -R 777 /tmp/dc-report /tmp/dc-data
           chmod -R 777 /tmp/dc-data
           echo "NVD key length: ${#NVD_API_KEY}"
           test -n "$NVD_API_KEY" || { echo "NVD_API_KEY secret is empty or missing"; exit 1; }
