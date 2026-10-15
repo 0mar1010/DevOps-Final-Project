@@ -1133,9 +1133,13 @@ terraform destroy
 
 # Implementation Status
 
+---
+
+# Implementation Status
+
 ## 📌 Implementation Status (my project)
 
-_Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
+_Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
 
 **Environment:** local k3d cluster (`capstone`), Traefik ingress, ArgoCD (app-of-apps, self-managed), Windows + PowerShell.
 **Order change:** CI/CD (README Phase 7) was done before AWS (README Phase 6).
@@ -1149,7 +1153,7 @@ _Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging not
 | 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; `filebeat-*` data view; Kibana dashboard "Capstone Logs"; ILM retention (delete after 60 days) |
 | 7 CI/CD Enhancement | ✅ Done | GitHub Actions (lint, test, build, Trivy image scan, Kubesec, tag bump) + a separate OWASP Dependency-Check workflow with cached NVD data + GitLab CI (build + scan) + manual production promotion. Kubesec and OWASP are report-only. Pipeline wall time about 1m 51s after caching |
 | Bonus: Autoscaling (HPA) | ✅ Done | HPA on `backend`: 2 to 5 pods at 70% CPU; load-tested, it scaled to 5 pods |
-| 6 AWS Cloud Integration | ⏭ Skipped for now | Planned, not built |
+| 6 AWS Cloud Integration | 🔶 Simulated, not built | Tested against the Vyomi local AWS simulator (AWS CLI + Terraform); the Terraform draft passes `terraform validate`. Real AWS not built |
 
 ### CI/CD as built
 
@@ -1200,6 +1204,19 @@ _Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging not
 - HPA `backend`: min 2, max 5, target 70% CPU (CPU request 100m, limit 500m per pod).
 - Test: a temporary `busybox` pod ran 12 `wget` loops against `http://backend:5000/health`; the backend scaled to 5 pods and ArgoCD stayed Synced.
 
+### AWS simulation (no real AWS account)
+
+```text
+[Terraform .tf files] --apply--> [Vyomi simulator (Docker, random port)] --> [VPC, S3 bucket]
+          |
+          '-- on real AWS: same files, remove the endpoint override and the skip_* lines
+```
+
+- Vyomi is a local cloud simulator: the standard `aws` CLI and Terraform work against it by overriding the endpoint URL.
+- Worked: S3 upload/list, VPC create/describe; IAM, RDS and EC2 list calls answer. Terraform 1.16.6 `init`, `plan` and `validate` pass.
+- Limits found: the simulator holds one S3 bucket at a time, does not implement `DescribeVpcAttribute` (Terraform reads it after creating a VPC), and its Secrets Manager had no backend in the plain image.
+- Result: AWS is simulated and validated, not run on a real account.
+
 ### Logging stack as built (differs from the plan above)
 
 ```text
@@ -1225,10 +1242,10 @@ _Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging not
 - The Kibana chart is vendored in `charts/kibana/` with local patches (broken pre-install hook removed, probe auth removed).
 - Single-node Elasticsearch has no redundancy.
 - Kubesec (backend 4/10, frontend 4/10, postgres 2/10) and OWASP findings are not triaged yet, so both scanners are report-only.
-- The OWASP NVD cache is not seeded yet: the first full run (about 3h) was cancelled at about 81%, so the next run starts the download again.
+- The OWASP NVD cache is seeded by running `owasp.yml` once (the first full database download takes about an hour); until then the first run is slow.
 - The Helm chart's values files hold hand-copied image tags; CI only updates the Kustomize overlay.
 - The production overlay is updated in Git only; there is no ArgoCD production app (one cluster only: both overlays would collide on the same Deployments; a real setup uses a second cluster).
-- AWS (Terraform, ECS/EC2/S3/RDS) was not built.
+- AWS was not built on a real account. The simulator covered only part of it (see "AWS simulation"); ECS and ECR were not available there.
 
 ### Lessons learned (for the presentation)
 
@@ -1241,5 +1258,6 @@ _Last updated: 2026-10-14. Details and log: `PROGRESS.md`. Q&A and debugging not
 - Caching is the biggest CI speed-up (about 4m 41s down to about 1m 51s), and caches are saved only when a job succeeds.
 - Report-only scanners give evidence without freezing the pipeline; gate them after triage.
 - HPA scales on CPU as a percentage of the CPU request: set requests, then prove it with a load test.
+- Terraform reads attributes back after creating a resource, so a partial simulator can fail even when the create worked; `terraform validate` and `plan` need no cloud.
 - Check the data path (indices, image tags) before trusting a dashboard.
 - Retention (ILM) is configuration inside Elasticsearch: document it in the recovery notes.
