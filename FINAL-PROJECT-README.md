@@ -1125,6 +1125,10 @@ terraform destroy
 
 # Implementation Status
 
+---
+
+# Implementation Status
+
 ## 📌 Implementation Status (my project)
 
 _Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging notes: `PROJECT-QA.md`._
@@ -1141,7 +1145,8 @@ _Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging not
 | 5 Centralized Logging | ✅ Done | Elasticsearch, Kibana and Filebeat over HTTPS; `filebeat-*` data view; Kibana dashboard "Capstone Logs"; ILM retention (delete after 60 days) |
 | 7 CI/CD Enhancement | ✅ Done | GitHub Actions (lint, test, build, Trivy image scan, Kubesec, tag bump) + a separate OWASP Dependency-Check workflow with cached NVD data + GitLab CI (build + scan) + manual production promotion. Kubesec and OWASP are report-only. Pipeline wall time about 1m 51s after caching |
 | Bonus: Autoscaling (HPA) | ✅ Done | HPA on `backend`: 2 to 5 pods at 70% CPU; load-tested, it scaled to 5 pods |
-| 6 AWS Cloud Integration | 🔶 Simulated, not built | Tested against the Vyomi local AWS simulator (AWS CLI + Terraform); the Terraform draft passes `terraform validate`. Real AWS not built |
+| 6 Cloud Integration (Azure AKS instead of AWS) | 🔄 In progress | Terraform `terraform/azure-aks/` (resource group + AKS, 2 nodes) applied and destroyed once; ArgoCD and the app are not on AKS yet (see "Azure AKS as built"). AWS (below) was only simulated |
+| 6a AWS (original plan) | 🔶 Simulated, not built | Tested against the Vyomi local AWS simulator (AWS CLI + Terraform); the Terraform draft passes `terraform validate`. Real AWS not built |
 
 ### CI/CD as built
 
@@ -1205,6 +1210,20 @@ _Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging not
 - Limits found: the simulator holds one S3 bucket at a time, does not implement `DescribeVpcAttribute` (Terraform reads it after creating a VPC), and its Secrets Manager had no backend in the plain image.
 - Result: AWS is simulated and validated, not run on a real account.
 
+### Azure AKS as built (so far)
+
+```text
+[Terraform azurerm] --apply (4m29s)--> [Resource group capstone-rg] --> [AKS capstone-aks, Free tier]
+                                                                              |
+                                                                              '-- [2 x Standard_B2s_v2, swedencentral, Kubernetes 1.36.4]
+[terraform destroy] --> everything removed after each session (only NetworkWatcherRG stays, free)
+```
+
+- Region and size chosen from the real quota and SKU output: 4 vCPUs per region on the trial, westeurope blocks the B-series, swedencentral allows `Standard_B2s_v2`.
+- Verified: 2 nodes Ready, system pods Running (incl. metrics-server), `kubectl top` works. Cluster destroyed afterwards.
+- Portal cost tools do not work on the trial subscription, so cost is controlled by destroying after every session.
+- Next: ArgoCD in AKS, ingress (no Traefik by default), app on a public IP, HPA test, screenshots.
+
 ### Logging stack as built (differs from the plan above)
 
 ```text
@@ -1225,6 +1244,8 @@ _Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging not
 
 ### Known gaps / honest limitations
 
+- Not in the repo vs the course README: `docs/` files (SETUP, DEPLOYMENT, MONITORING, LOGGING, AWS-INTEGRATION, TROUBLESHOOTING, RUNBOOK), Ansible playbooks, `docker-compose.yml`, Logstash (skipped by design), SonarQube. Decide with the instructor which are required.
+- Nginx runs inside the frontend image (`frontend/nginx.conf`); routing to the backend is done by the ingress.
 - `kibana-system-credentials` is created by hand and is not in Git. Production answer: Sealed Secrets or External Secrets.
 - The Elastic chart regenerates its secrets on sync, and the StatefulSet shows harmless defaulted fields; both are handled with ArgoCD `ignoreDifferences` rules.
 - The Kibana chart is vendored in `charts/kibana/` with local patches (broken pre-install hook removed, probe auth removed).
@@ -1248,4 +1269,6 @@ _Last updated: 2026-10-15. Details and log: `PROGRESS.md`. Q&A and debugging not
 - HPA scales on CPU as a percentage of the CPU request: set requests, then prove it with a load test.
 - Terraform reads attributes back after creating a resource, so a partial simulator can fail even when the create worked; `terraform validate` and `plan` need no cloud.
 - Check the data path (indices, image tags) before trusting a dashboard.
+- Check the vCPU quota and VM size restrictions per region before writing Terraform; a trial subscription can block whole VM families in a region.
+- Run `terraform destroy` alone: pasted with other lines, the yes prompt fails.
 - Retention (ILM) is configuration inside Elasticsearch: document it in the recovery notes.
