@@ -13,3 +13,5 @@ k3d/
 # OS
 .DS_Store
 Thumbs.db
+.terraform/
+*.tfstate*
