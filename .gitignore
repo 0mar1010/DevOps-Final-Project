@@ -15,3 +15,9 @@ k3d/
 Thumbs.db
 .terraform/
 *.tfstate*
+
+terraform/azure-aks/.terraform/
+terraform/azure-aks/*.tfstate*
+terraform/azure-aks/*.tfvars
+
+terraform/azure-aks/tfplan
